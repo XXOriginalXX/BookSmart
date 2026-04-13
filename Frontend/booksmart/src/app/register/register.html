@@ -1,0 +1,92 @@
+<div class="page-wrapper">
+
+  <div class="brand-panel">
+    <div class="brand-content">
+      <div class="logo-mark">
+        <span class="logo-icon">⬡</span>
+      </div>
+      <h1 class="brand-name">BOOKSMART</h1>
+      <p class="brand-tagline">AI-Powered Appointment Intelligence</p>
+      <ul class="feature-list">
+        <li><span class="feat-icon">◈</span><span>Predict high-demand booking slots</span></li>
+        <li><span class="feat-icon">◈</span><span>Optimize slot availability</span></li>
+        <li><span class="feat-icon">◈</span><span>Historical data insights</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="form-panel">
+    <div class="form-box">
+
+      <div class="form-header">
+        <h2 class="form-title">Create account</h2>
+        <p class="form-subtitle">Join BOOKSMART to get started</p>
+      </div>
+
+      <form (ngSubmit)="onSubmit()" #registerForm="ngForm" novalidate>
+
+        <div class="field-group">
+          <label class="field-label">Full Name</label>
+          <div class="input-wrapper">
+            <span class="input-icon">👩🏻‍💼</span>
+            <input type="text" name="fullName" [(ngModel)]="fullName"
+              placeholder="Dr. Thushar Vijay" class="field-input" />
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Email address</label>
+          <div class="input-wrapper">
+            <span class="input-icon">✉</span>
+            <input type="email" name="email" [(ngModel)]="email"
+              placeholder="doctor@clinic.com" class="field-input" />
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Password</label>
+          <div class="input-wrapper">
+            <span class="input-icon">⚿</span>
+            <input [type]="showPassword ? 'text' : 'password'"
+              name="password" [(ngModel)]="password"
+              placeholder="Min. 6 characters" class="field-input" />
+            <button type="button" class="toggle-btn" (click)="togglePassword()">
+              {{ showPassword ? '🙈' : '👁' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Confirm Password</label>
+          <div class="input-wrapper">
+            <span class="input-icon">⚿</span>
+            <input [type]="showPassword ? 'text' : 'password'"
+              name="confirmPassword" [(ngModel)]="confirmPassword"
+              placeholder="Repeat your password" class="field-input" />
+          </div>
+        </div>
+
+        <div class="error-box" *ngIf="errorMessage">
+          <span class="error-icon">!</span>
+          <span>{{ errorMessage }}</span>
+        </div>
+
+        <button type="submit" class="submit-btn" [disabled]="isLoading">
+          <span *ngIf="!isLoading">Create Account</span>
+          <span *ngIf="isLoading" class="spinner-text">
+            <span class="spinner"></span> Creating...
+          </span>
+        </button>
+
+      </form>
+
+      <p class="signin-link">
+        Already have an account? <a (click)="router.navigate(['/login'])" class="link">Sign in</a>
+      </p>
+
+      <p class="footer-note">AI Appointment Demand Prediction System &mdash; v1.0</p>
+
+    </div>
+  </div>
+
+</div>
