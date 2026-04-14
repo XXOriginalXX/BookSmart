@@ -44,9 +44,9 @@ export class LoginComponent {
     next: (res) => {
   this.isLoading = false;
 
-  alert('Login successful 🎉');
+  //alert('Login successful 🎉');
 
-  this.router.navigate(['/dashboard']);
+  this.router.navigate(['/booking']);
 },
     error: (err) => {
       this.isLoading = false;
