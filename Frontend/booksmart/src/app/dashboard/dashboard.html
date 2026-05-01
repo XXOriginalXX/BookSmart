@@ -1,0 +1,149 @@
+<div class="page-wrapper">
+
+  <div class="sidebar">
+    <div class="sidebar-brand">
+      <span class="logo-icon">⬡</span>
+      <span class="brand-name">BOOKSMART</span>
+    </div>
+
+    <nav class="nav-links">
+      <a class="nav-item active">
+        <span class="nav-icon">◧</span> Dashboard
+      </a>
+      <a class="nav-item" (click)="router.navigate(['/booking'])">
+        <span class="nav-icon">📅</span> Book Appointment
+      </a>
+      <a class="nav-item" (click)="signOut()">
+        <span class="nav-icon">→</span> Sign Out
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      AI Appointment Demand<br>Prediction System
+    </div>
+  </div>
+
+  <div class="main-content">
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-subtitle">Overview of appointment activity and predictions</p>
+      </div>
+      <button class="book-btn" (click)="router.navigate(['/booking'])">
+        + New Appointment
+      </button>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card" *ngFor="let stat of stats">
+        <div class="stat-icon">{{ stat.icon }}</div>
+        <div class="stat-info">
+          <p class="stat-label">{{ stat.label }}</p>
+          <p class="stat-value">{{ stat.value }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-header">
+        <h2 class="section-title">Recent Appointments</h2>
+        <a class="view-all" (click)="router.navigate(['/booking'])">View all →</a>
+      </div>
+
+      <table class="appointments-table">
+        <thead>
+          <tr>
+            <th>Patient</th>
+            <th>Doctor</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let appt of recentAppointments">
+            <td class="patient-name">{{ appt.patient }}</td>
+            <td>{{ appt.doctor }}</td>
+            <td>{{ appt.date }}</td>
+            <td>{{ appt.time }}</td>
+            <td>
+              <span class="status-badge" [ngClass]="getStatusClass(appt.status)">
+                {{ appt.status }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="bottom-grid">
+
+      <div class="section-card">
+        <div class="section-header">
+          <h2 class="section-title">Demand Prediction</h2>
+        </div>
+        <div class="prediction-list">
+          <div class="prediction-row">
+            <span class="pred-slot">09:00 AM</span>
+            <div class="pred-bar-wrap">
+              <div class="pred-bar" style="width: 85%"></div>
+            </div>
+            <span class="pred-pct">85%</span>
+          </div>
+          <div class="prediction-row">
+            <span class="pred-slot">10:00 AM</span>
+            <div class="pred-bar-wrap">
+              <div class="pred-bar high" style="width: 95%"></div>
+            </div>
+            <span class="pred-pct">95%</span>
+          </div>
+          <div class="prediction-row">
+            <span class="pred-slot">11:00 AM</span>
+            <div class="pred-bar-wrap">
+              <div class="pred-bar" style="width: 70%"></div>
+            </div>
+            <span class="pred-pct">70%</span>
+          </div>
+          <div class="prediction-row">
+            <span class="pred-slot">02:00 PM</span>
+            <div class="pred-bar-wrap">
+              <div class="pred-bar low" style="width: 40%"></div>
+            </div>
+            <span class="pred-pct">40%</span>
+          </div>
+          <div class="prediction-row">
+            <span class="pred-slot">03:00 PM</span>
+            <div class="pred-bar-wrap">
+              <div class="pred-bar low" style="width: 30%"></div>
+            </div>
+            <span class="pred-pct">30%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <h2 class="section-title">No-Show Risk Today</h2>
+        </div>
+        <div class="risk-list">
+          <div class="risk-row" *ngFor="let appt of recentAppointments">
+            <div class="risk-info">
+              <p class="risk-name">{{ appt.patient }}</p>
+              <p class="risk-time">{{ appt.time }}</p>
+            </div>
+            <span class="risk-badge"
+              [class.risk-high]="appt.status === 'No Show'"
+              [class.risk-low]="appt.status === 'Confirmed'"
+              [class.risk-mid]="appt.status === 'Pending'">
+              {{ appt.status === 'No Show' ? 'High' : appt.status === 'Pending' ? 'Medium' : 'Low' }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
