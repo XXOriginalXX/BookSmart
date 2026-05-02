@@ -1,5 +1,6 @@
-using Microsoft.EntityFrameworkCore;
 using AppointmentSystem.API.Models;
+using Microsoft.EntityFrameworkCore;
+
 
 namespace AppointmentSystem.API.Data
 {
@@ -7,6 +8,23 @@ namespace AppointmentSystem.API.Data
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-        public DbSet<User> Users { get; set; }
+        public DbSet<User> Users => Set<User>();
+        public DbSet<Doctor> Doctors => Set<Doctor>();
+        public DbSet<Appointment> Appointments => Set<Appointment>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Appointment>()
+                .HasOne(a => a.Patient)
+                .WithMany()
+                .HasForeignKey(a => a.PatientId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Appointment>()
+                .HasOne(a => a.Doctor)
+                .WithMany()
+                .HasForeignKey(a => a.DoctorId)
+                .OnDelete(DeleteBehavior.Restrict);
+        }
     }
 }
