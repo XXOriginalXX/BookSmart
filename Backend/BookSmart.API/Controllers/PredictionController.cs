@@ -1,8 +1,8 @@
-using BookSmart.API.Models;
-using BookSmart.API.Services;
+using AppointmentSystem.API.Models;
+using AppointmentSystem.API.Services;
 using Microsoft.AspNetCore.Mvc;
 
-namespace BookSmart.API.Controllers
+namespace AppointmentSystem.API.Controllers
 {
     [ApiController]
     [Route("api/prediction")]
@@ -15,15 +15,18 @@ namespace BookSmart.API.Controllers
             _predictionService = predictionService;
         }
 
-        [HttpPost("analyze")]
-        public async Task<IActionResult> Analyze([FromBody] PredictionRequest request)
+        [HttpPost("noshow")]
+        public async Task<IActionResult> Predict([FromBody] PredictionRequest request)
         {
-            var result = await _predictionService.PredictAsync(request);
-            
-            if (result == null)
-                return StatusCode(500, new { message = "AI Analysis failed." });
-
-            return Ok(result);
+            try
+            {
+                var result = await _predictionService.PredictAsync(request);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
         }
     }
 }

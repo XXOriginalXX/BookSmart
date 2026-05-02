@@ -1,4 +1,4 @@
-namespace BookSmart.API.Models
+namespace AppointmentSystem.API.Models
 {
     public class PredictionRequest
     {
@@ -10,16 +10,16 @@ namespace BookSmart.API.Models
         public int Diabetes { get; set; }
         public int Alcoholism { get; set; }
         public int Handicap { get; set; }
-        public int SmsReceived { get; set; }
+        public int SMS_received { get; set; }
         public int WaitingDays { get; set; }
         public int AppointmentDayOfWeek { get; set; }
         public int AppointmentHour { get; set; }
     }
 
-    public class PredictionResponse
+    public class PredictionResult
     {
+        public double NoShowProbability { get; set; }
         public bool WillNoShow { get; set; }
-        public double Probability { get; set; }
-        public string DemandLevel { get; set; } = "";
+        public double Threshold { get; set; }
     }
 }

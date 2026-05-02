@@ -1,33 +1,43 @@
-using BookSmart.API.Models;
-using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
+using AppointmentSystem.API.Models;
 
-namespace BookSmart.API.Services
+namespace AppointmentSystem.API.Services
 {
     public class PredictionService
     {
-        private readonly string _pythonPath = "python";
-        private readonly string _scriptPath = "predict_bridge.py";
+        private readonly HttpClient _http;
+        private readonly string _baseUrl;
 
-        public async Task<PredictionResponse> PredictAsync(PredictionRequest request)
+        public PredictionService(HttpClient http, IConfiguration config)
         {
-            var payload = JsonSerializer.Serialize(request);
-            
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = _pythonPath,
-                Arguments = $"{_scriptPath} \"{payload.Replace("\"", "\\\"")}\"",
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+            _http = http;
+            _baseUrl = config["Prediction:BaseUrl"] ?? "http://localhost:8000";
+        }
 
-            using var process = Process.Start(startInfo);
-            using var reader = process.StandardOutput;
-            string result = await reader.ReadToEndAsync();
-            
-            return JsonSerializer.Deserialize<PredictionResponse>(result) 
-                   ?? new PredictionResponse();
+        public async Task<PredictionResult> PredictAsync(PredictionRequest req)
+        {
+            var payload = JsonSerializer.Serialize(req, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+            });
+
+            var content = new StringContent(payload, Encoding.UTF8, "application/json");
+            var response = await _http.PostAsync($"{_baseUrl}/predict", content);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Prediction service error: {err}");
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            var result = JsonSerializer.Deserialize<PredictionResult>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            return result ?? throw new Exception("Empty response from prediction service.");
         }
     }
 }
