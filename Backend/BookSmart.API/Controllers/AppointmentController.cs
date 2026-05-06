@@ -48,9 +48,49 @@ namespace AppointmentSystem.API.Controllers
 
             return Ok(new { message = "Appointment booked.", appointmentId = appointment.Id });
         }
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var appointment = await _db.Appointments
+                .Include(a => a.Patient)
+                .Include(a => a.Doctor)
+                .FirstOrDefaultAsync(a => a.Id == id);
+ 
+            if (appointment == null)
+                return NotFound(new { message = "Appointment not found." });
+ 
+            return Ok(MapToResponse(appointment));
+        }
+ 
+        [HttpGet("patient/{patientId}")]
+        public async Task<IActionResult> GetByPatient(int patientId)
+        {
+            var appointments = await _db.Appointments
+                .Include(a => a.Doctor)
+                .Where(a => a.PatientId == patientId)
+                .OrderByDescending(a => a.SlotDateTime)
+                .ToListAsync();
+ 
+            return Ok(appointments.Select(MapToResponse));
+        }
+        private static object MapToResponse(Appointment a) => new
+        {
+            a.Id,
+            a.PatientId,
+            patientName = a.Patient?.FullName,
+            a.DoctorId,
+            doctorName = a.Doctor?.FullName,
+            doctorSpecialization = a.Doctor?.Specialization,
+            a.SlotDateTime,
+            a.ScheduledAt,
+            status = a.Status.ToString(),
+            a.Notes
+        };
+    }
 
         
-    }
+    
+
 
     public class BookAppointmentRequest
     {
