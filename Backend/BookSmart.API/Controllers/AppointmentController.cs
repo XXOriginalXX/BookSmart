@@ -16,6 +16,48 @@ namespace AppointmentSystem.API.Controllers
             _db = db;
         }
 
+        [HttpGet("specializations")]
+        public async Task<IActionResult> GetSpecializations()
+        {
+            var specializations = await _db.Doctors
+                .Select(d => d.Specialization)
+                .Distinct()
+                .OrderBy(s => s)
+                .ToListAsync();
+
+            return Ok(specializations);
+        }
+
+        [HttpGet("doctors")]
+        public async Task<IActionResult> GetDoctorsBySpecialization([FromQuery] string specialization)
+        {
+            if (string.IsNullOrWhiteSpace(specialization))
+                return BadRequest(new { message = "Specialization is required." });
+
+            var doctors = await _db.Doctors
+                .Where(d => d.Specialization == specialization)
+                .Select(d => new { d.Id, d.FullName, d.Specialization })
+                .ToListAsync();
+
+            return Ok(doctors);
+        }
+
+        [HttpGet("slots/{doctorId}")]
+        public async Task<IActionResult> GetAvailableSlots(int doctorId)
+        {
+            bool doctorExists = await _db.Doctors.AnyAsync(d => d.Id == doctorId);
+            if (!doctorExists)
+                return NotFound(new { message = "Doctor not found." });
+
+            var slots = await _db.DoctorAvailability
+                .Where(da => da.DoctorId == doctorId && !da.IsBooked && da.SlotStart > DateTime.UtcNow)
+                .OrderBy(da => da.SlotStart)
+                .Select(da => new { da.Id, da.SlotStart, da.SlotEnd })
+                .ToListAsync();
+
+            return Ok(slots);
+        }
+
         [HttpPost]
         public async Task<IActionResult> Book([FromBody] BookAppointmentRequest request)
         {
@@ -23,31 +65,32 @@ namespace AppointmentSystem.API.Controllers
             if (!patientExists)
                 return BadRequest(new { message = "Patient not found." });
 
-            bool doctorExists = await _db.Doctors.AnyAsync(d => d.Id == request.DoctorId);
-            if (!doctorExists)
-                return BadRequest(new { message = "Doctor not found." });
+            var slot = await _db.DoctorAvailability
+                .Include(da => da.Doctor)
+                .FirstOrDefaultAsync(da => da.Id == request.SlotId);
 
-            bool slotTaken = await _db.Appointments.AnyAsync(a =>
-                a.DoctorId == request.DoctorId &&
-                a.SlotDateTime == request.SlotDateTime &&
-                a.Status != AppointmentStatus.Cancelled);
+            if (slot == null)
+                return NotFound(new { message = "Slot not found." });
 
-            if (slotTaken)
+            if (slot.IsBooked)
                 return Conflict(new { message = "This slot is already booked." });
 
             var appointment = new Appointment
             {
                 PatientId = request.PatientId,
-                DoctorId = request.DoctorId,
-                SlotDateTime = request.SlotDateTime,
+                DoctorId = slot.DoctorId,
+                SlotDateTime = slot.SlotStart,
                 Notes = request.Notes
             };
+
+            slot.IsBooked = true;
 
             _db.Appointments.Add(appointment);
             await _db.SaveChangesAsync();
 
             return Ok(new { message = "Appointment booked.", appointmentId = appointment.Id });
         }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
@@ -55,13 +98,13 @@ namespace AppointmentSystem.API.Controllers
                 .Include(a => a.Patient)
                 .Include(a => a.Doctor)
                 .FirstOrDefaultAsync(a => a.Id == id);
- 
+
             if (appointment == null)
                 return NotFound(new { message = "Appointment not found." });
- 
+
             return Ok(MapToResponse(appointment));
         }
- 
+
         [HttpGet("patient/{patientId}")]
         public async Task<IActionResult> GetByPatient(int patientId)
         {
@@ -70,9 +113,10 @@ namespace AppointmentSystem.API.Controllers
                 .Where(a => a.PatientId == patientId)
                 .OrderByDescending(a => a.SlotDateTime)
                 .ToListAsync();
- 
+
             return Ok(appointments.Select(MapToResponse));
         }
+
         [HttpGet("doctor/{doctorId}")]
         public async Task<IActionResult> GetByDoctor(int doctorId)
         {
@@ -81,42 +125,53 @@ namespace AppointmentSystem.API.Controllers
                 .Where(a => a.DoctorId == doctorId)
                 .OrderBy(a => a.SlotDateTime)
                 .ToListAsync();
- 
+
             return Ok(appointments.Select(MapToResponse));
         }
- 
+
         [HttpPatch("{id}/status")]
         public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequest request)
         {
             var appointment = await _db.Appointments.FindAsync(id);
             if (appointment == null)
                 return NotFound(new { message = "Appointment not found." });
- 
+
             if (!IsValidTransition(appointment.Status, request.Status))
                 return BadRequest(new { message = $"Cannot transition from {appointment.Status} to {request.Status}." });
- 
+
             appointment.Status = request.Status;
             await _db.SaveChangesAsync();
- 
+
             return Ok(new { message = "Status updated.", status = appointment.Status.ToString() });
         }
- 
+
         [HttpDelete("{id}")]
         public async Task<IActionResult> Cancel(int id)
         {
-            var appointment = await _db.Appointments.FindAsync(id);
+            var appointment = await _db.Appointments
+                .Include(a => a.Doctor)
+                .FirstOrDefaultAsync(a => a.Id == id);
+
             if (appointment == null)
                 return NotFound(new { message = "Appointment not found." });
- 
+
             if (appointment.Status == AppointmentStatus.Completed)
                 return BadRequest(new { message = "Cannot cancel a completed appointment." });
- 
+
+            var slot = await _db.DoctorAvailability
+                .FirstOrDefaultAsync(da =>
+                    da.DoctorId == appointment.DoctorId &&
+                    da.SlotStart == appointment.SlotDateTime);
+
+            if (slot != null)
+                slot.IsBooked = false;
+
             appointment.Status = AppointmentStatus.Cancelled;
             await _db.SaveChangesAsync();
- 
+
             return Ok(new { message = "Appointment cancelled." });
         }
- 
+
         private static bool IsValidTransition(AppointmentStatus current, AppointmentStatus next)
         {
             return (current, next) switch
@@ -128,6 +183,7 @@ namespace AppointmentSystem.API.Controllers
                 _ => false
             };
         }
+
         private static object MapToResponse(Appointment a) => new
         {
             a.Id,
@@ -143,20 +199,15 @@ namespace AppointmentSystem.API.Controllers
         };
     }
 
-        
-    
-
-
     public class BookAppointmentRequest
     {
         public int PatientId { get; set; }
-        public int DoctorId { get; set; }
-        public DateTime SlotDateTime { get; set; }
+        public int SlotId { get; set; }
         public string? Notes { get; set; }
     }
+
     public class UpdateStatusRequest
     {
         public AppointmentStatus Status { get; set; }
     }
-
 }
