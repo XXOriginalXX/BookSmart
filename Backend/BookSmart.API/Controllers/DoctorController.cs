@@ -51,6 +51,39 @@ namespace AppointmentSystem.API.Controllers
  
             return Ok(new { message = "Doctor added.", doctorId = doctor.Id });
         }
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, [FromBody] DoctorRequest request)
+        {
+            var doctor = await _db.Doctors.FindAsync(id);
+            if (doctor == null)
+                return NotFound(new { message = "Doctor not found." });
+ 
+            doctor.FullName = request.FullName;
+            doctor.Specialization = request.Specialization;
+            doctor.Email = request.Email;
+ 
+            await _db.SaveChangesAsync();
+ 
+            return Ok(new { message = "Doctor updated." });
+        }
+ 
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var doctor = await _db.Doctors.FindAsync(id);
+            if (doctor == null)
+                return NotFound(new { message = "Doctor not found." });
+ 
+            bool hasAppointments = await _db.Appointments.AnyAsync(a => a.DoctorId == id);
+            if (hasAppointments)
+                return BadRequest(new { message = "Cannot delete a doctor with existing appointments." });
+ 
+            _db.Doctors.Remove(doctor);
+            await _db.SaveChangesAsync();
+ 
+            return Ok(new { message = "Doctor removed." });
+        }
+    
 
 
         
