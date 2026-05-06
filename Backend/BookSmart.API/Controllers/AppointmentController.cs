@@ -73,6 +73,61 @@ namespace AppointmentSystem.API.Controllers
  
             return Ok(appointments.Select(MapToResponse));
         }
+        [HttpGet("doctor/{doctorId}")]
+        public async Task<IActionResult> GetByDoctor(int doctorId)
+        {
+            var appointments = await _db.Appointments
+                .Include(a => a.Patient)
+                .Where(a => a.DoctorId == doctorId)
+                .OrderBy(a => a.SlotDateTime)
+                .ToListAsync();
+ 
+            return Ok(appointments.Select(MapToResponse));
+        }
+ 
+        [HttpPatch("{id}/status")]
+        public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequest request)
+        {
+            var appointment = await _db.Appointments.FindAsync(id);
+            if (appointment == null)
+                return NotFound(new { message = "Appointment not found." });
+ 
+            if (!IsValidTransition(appointment.Status, request.Status))
+                return BadRequest(new { message = $"Cannot transition from {appointment.Status} to {request.Status}." });
+ 
+            appointment.Status = request.Status;
+            await _db.SaveChangesAsync();
+ 
+            return Ok(new { message = "Status updated.", status = appointment.Status.ToString() });
+        }
+ 
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Cancel(int id)
+        {
+            var appointment = await _db.Appointments.FindAsync(id);
+            if (appointment == null)
+                return NotFound(new { message = "Appointment not found." });
+ 
+            if (appointment.Status == AppointmentStatus.Completed)
+                return BadRequest(new { message = "Cannot cancel a completed appointment." });
+ 
+            appointment.Status = AppointmentStatus.Cancelled;
+            await _db.SaveChangesAsync();
+ 
+            return Ok(new { message = "Appointment cancelled." });
+        }
+ 
+        private static bool IsValidTransition(AppointmentStatus current, AppointmentStatus next)
+        {
+            return (current, next) switch
+            {
+                (AppointmentStatus.Pending, AppointmentStatus.Confirmed) => true,
+                (AppointmentStatus.Pending, AppointmentStatus.Cancelled) => true,
+                (AppointmentStatus.Confirmed, AppointmentStatus.Completed) => true,
+                (AppointmentStatus.Confirmed, AppointmentStatus.Cancelled) => true,
+                _ => false
+            };
+        }
         private static object MapToResponse(Appointment a) => new
         {
             a.Id,
@@ -98,6 +153,10 @@ namespace AppointmentSystem.API.Controllers
         public int DoctorId { get; set; }
         public DateTime SlotDateTime { get; set; }
         public string? Notes { get; set; }
+    }
+    public class UpdateStatusRequest
+    {
+        public AppointmentStatus Status { get; set; }
     }
 
 }
