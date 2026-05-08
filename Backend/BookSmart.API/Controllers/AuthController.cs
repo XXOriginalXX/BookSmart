@@ -1,5 +1,6 @@
 using AppointmentSystem.API.Data;
 using AppointmentSystem.API.Models;
+using AppointmentSystem.API.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,17 +11,17 @@ namespace AppointmentSystem.API.Controllers
     public class AuthController : ControllerBase
     {
         private readonly AppDbContext _db;
+        private readonly JwtService _jwt;
 
-        public AuthController(AppDbContext db)
+        public AuthController(AppDbContext db, JwtService jwt)
         {
             _db = db;
+            _jwt = jwt;
         }
 
-        // POST api/auth/register
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
-            // Check if email already taken
             bool exists = await _db.Users.AnyAsync(u => u.Email == request.Email);
             if (exists)
                 return BadRequest(new { message = "Email already in use." });
@@ -29,7 +30,8 @@ namespace AppointmentSystem.API.Controllers
             {
                 FullName = request.FullName,
                 Email = request.Email,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password)
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+                Role = UserRole.Patient
             };
 
             _db.Users.Add(user);
@@ -38,7 +40,6 @@ namespace AppointmentSystem.API.Controllers
             return Ok(new { message = "Registration successful.", userId = user.Id });
         }
 
-        // POST api/auth/login
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
@@ -47,11 +48,18 @@ namespace AppointmentSystem.API.Controllers
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
                 return Unauthorized(new { message = "Invalid email or password." });
 
-            return Ok(new { message = "Login successful.", userId = user.Id, fullName = user.FullName });
+            var token = _jwt.Generate(user);
+
+            return Ok(new
+            {
+                token,
+                userId = user.Id,
+                fullName = user.FullName,
+                role = user.Role.ToString()
+            });
         }
     }
 
-    // Keeping these small classes in the same file — no need for a DTOs folder yet
     public class RegisterRequest
     {
         public string FullName { get; set; } = "";

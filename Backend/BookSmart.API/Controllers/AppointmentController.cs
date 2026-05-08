@@ -206,8 +206,8 @@ namespace AppointmentSystem.API.Controllers
         public string? Notes { get; set; }
     }
 
-    public class UpdateStatusRequest
-    {
-        public AppointmentStatus Status { get; set; }
-    }
+    //public class UpdateStatusRequest
+    //{
+     //   public AppointmentStatus Status { get; set; }
+    //}
 }
