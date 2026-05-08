@@ -11,6 +11,7 @@ namespace AppointmentSystem.API.Data
         public DbSet<Doctor> Doctors => Set<Doctor>();
         public DbSet<Appointment> Appointments => Set<Appointment>();
         public DbSet<DoctorAvailability> DoctorAvailability => Set<DoctorAvailability>();
+        public DbSet<AppointmentDocument> AppointmentDocuments => Set<AppointmentDocument>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
