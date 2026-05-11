@@ -1,5 +1,6 @@
 using AppointmentSystem.API.Data;
 using AppointmentSystem.API.Models;
+using AppointmentSystem.API.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,10 +11,12 @@ namespace AppointmentSystem.API.Controllers
     public class AppointmentController : ControllerBase
     {
         private readonly AppDbContext _db;
+        private readonly PredictionService _prediction;
 
-        public AppointmentController(AppDbContext db)
+        public AppointmentController(AppDbContext db, PredictionService prediction)
         {
             _db = db;
+            _prediction = prediction;
         }
 
         [HttpGet("specializations")]
@@ -75,20 +78,71 @@ namespace AppointmentSystem.API.Controllers
             if (slot.IsBooked)
                 return Conflict(new { message = "This slot is already booked." });
 
+            var waitingDays = (slot.SlotStart - DateTime.UtcNow).Days;
+            if (waitingDays < 0) waitingDays = 0;
+
+            var predRequest = new PredictionRequest
+            {
+                Gender = request.Gender,
+                Age = request.Age,
+                Neighbourhood = request.Neighbourhood,
+                Scholarship = request.Scholarship,
+                Hypertension = request.Hypertension,
+                Diabetes = request.Diabetes,
+                Alcoholism = request.Alcoholism,
+                Handicap = request.Handicap,
+                SMS_received = 0,
+                WaitingDays = waitingDays,
+                AppointmentDayOfWeek = slot.SlotStart.DayOfWeek == DayOfWeek.Sunday ? 6 : (int)slot.SlotStart.DayOfWeek - 1,
+                AppointmentHour = slot.SlotStart.Hour
+            };
+
+            double noShowProb = 0;
+            bool isHighRisk = false;
+
+            try
+            {
+                var result = await _prediction.PredictAsync(predRequest);
+                noShowProb = result.NoShowProbability;
+                isHighRisk = result.NoShowProbability >= 0.90;
+            }
+            catch
+            {
+                // prediction failing should not block booking
+            }
+
             var appointment = new Appointment
             {
                 PatientId = request.PatientId,
                 DoctorId = slot.DoctorId,
                 SlotDateTime = slot.SlotStart,
-                Notes = request.Notes
+                Notes = request.Notes,
+                Gender = request.Gender,
+                Age = request.Age,
+                Neighbourhood = request.Neighbourhood,
+                Scholarship = request.Scholarship,
+                Hypertension = request.Hypertension,
+                Diabetes = request.Diabetes,
+                Alcoholism = request.Alcoholism,
+                Handicap = request.Handicap,
+                SmsReceived = 0,
+                NoShowProbability = noShowProb,
+                IsHighRisk = isHighRisk
             };
 
-            slot.IsBooked = true;
+            if (!isHighRisk)
+                slot.IsBooked = true;
 
             _db.Appointments.Add(appointment);
             await _db.SaveChangesAsync();
 
-            return Ok(new { message = "Appointment booked.", appointmentId = appointment.Id });
+            return Ok(new
+            {
+                message = "Appointment booked.",
+                appointmentId = appointment.Id,
+                isHighRisk,
+                noShowProbability = noShowProb
+            });
         }
 
         [HttpGet("{id}")]
@@ -158,13 +212,16 @@ namespace AppointmentSystem.API.Controllers
             if (appointment.Status == AppointmentStatus.Completed)
                 return BadRequest(new { message = "Cannot cancel a completed appointment." });
 
-            var slot = await _db.DoctorAvailability
-                .FirstOrDefaultAsync(da =>
-                    da.DoctorId == appointment.DoctorId &&
-                    da.SlotStart == appointment.SlotDateTime);
+            if (!appointment.IsHighRisk)
+            {
+                var slot = await _db.DoctorAvailability
+                    .FirstOrDefaultAsync(da =>
+                        da.DoctorId == appointment.DoctorId &&
+                        da.SlotStart == appointment.SlotDateTime);
 
-            if (slot != null)
-                slot.IsBooked = false;
+                if (slot != null)
+                    slot.IsBooked = false;
+            }
 
             appointment.Status = AppointmentStatus.Cancelled;
             await _db.SaveChangesAsync();
@@ -195,7 +252,9 @@ namespace AppointmentSystem.API.Controllers
             a.SlotDateTime,
             a.ScheduledAt,
             status = a.Status.ToString(),
-            a.Notes
+            a.Notes,
+            a.NoShowProbability,
+            a.IsHighRisk
         };
     }
 
@@ -204,6 +263,14 @@ namespace AppointmentSystem.API.Controllers
         public int PatientId { get; set; }
         public int SlotId { get; set; }
         public string? Notes { get; set; }
+        public int Gender { get; set; }
+        public int Age { get; set; }
+        public int Neighbourhood { get; set; }
+        public int Scholarship { get; set; }
+        public int Hypertension { get; set; }
+        public int Diabetes { get; set; }
+        public int Alcoholism { get; set; }
+        public int Handicap { get; set; }
     }
 
     //public class UpdateStatusRequest

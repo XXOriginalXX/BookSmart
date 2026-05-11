@@ -20,6 +20,13 @@ namespace AppointmentSystem.API.Controllers
 
         // ── Doctors ──
 
+        [HttpGet("doctors")]
+        public async Task<IActionResult> GetDoctors()
+        {
+            var doctors = await _db.Doctors.ToListAsync();
+            return Ok(doctors);
+        }
+
         [HttpPost("doctors")]
         public async Task<IActionResult> AddDoctor([FromBody] DoctorRequest request)
         {
@@ -139,7 +146,7 @@ namespace AppointmentSystem.API.Controllers
         // ── Appointments ──
 
         [HttpGet("appointments")]
-        public async Task<IActionResult> GetAllAppointments([FromQuery] AppointmentStatus? status)
+        public async Task<IActionResult> GetAllAppointments([FromQuery] AppointmentStatus? status, [FromQuery] bool? highRiskOnly)
         {
             var query = _db.Appointments
                 .Include(a => a.Patient)
@@ -148,6 +155,9 @@ namespace AppointmentSystem.API.Controllers
 
             if (status.HasValue)
                 query = query.Where(a => a.Status == status.Value);
+
+            if (highRiskOnly == true)
+                query = query.Where(a => a.IsHighRisk);
 
             var appointments = await query
                 .OrderByDescending(a => a.SlotDateTime)
@@ -164,8 +174,22 @@ namespace AppointmentSystem.API.Controllers
                 a.SlotDateTime,
                 a.ScheduledAt,
                 status = a.Status.ToString(),
-                a.Notes
+                a.Notes,
+                a.NoShowProbability,
+                a.IsHighRisk
             }));
+        }
+
+        [HttpGet("stats")]
+        public async Task<IActionResult> GetStats()
+        {
+            var total = await _db.Appointments.CountAsync();
+            var highRisk = await _db.Appointments.CountAsync(a => a.IsHighRisk);
+            var doctors = await _db.Doctors.CountAsync();
+            var patients = await _db.Users.CountAsync(u => u.Role == UserRole.Patient);
+            var pending = await _db.Appointments.CountAsync(a => a.Status == AppointmentStatus.Pending);
+
+            return Ok(new { total, highRisk, doctors, patients, pending });
         }
 
         [HttpPatch("appointments/{id}/status")]
